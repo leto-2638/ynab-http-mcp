@@ -1,4 +1,4 @@
-# All transaction, planning actions.
+# All planning actions.
 from ynab_http_mcp.ynab_service import YnabService
 from typing import Any, Annotated
 from datetime import datetime
@@ -8,6 +8,7 @@ from ynab_http_mcp.debug import debug_exception, debug_string
 def register(mcp, ynab_service: YnabService):
     @mcp.tool(
             annotations={
+                "title":"Get the plan for a specific month.",
                 "destructiveHint":False,
                 "readOnlyHint": True,
                 "idempotentHint":True
@@ -35,6 +36,7 @@ def register(mcp, ynab_service: YnabService):
 
     @mcp.tool(
             annotations={
+                "title":"Get a summary of the plan across all months.",
                 "destructiveHint":False,
                 "readOnlyHint": True,
                 "idempotentHint":True
