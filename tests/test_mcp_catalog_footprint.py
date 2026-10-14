@@ -61,15 +61,24 @@ async def _fetch_catalog():
         resources_raw = await client.list_resources()
         templates_raw = await client.list_resource_templates()
 
+    # NOTE: MCP SDK v2 dumps protocol models with snake_case field names by
+    # default; ``by_alias=True`` restores the camelCase wire format
+    # (``inputSchema``, ``uriTemplate``, ``readOnlyHint``, ...) that the
+    # assertions below are written against.
     return {
-        "tools": [t.model_dump(mode="json", exclude_none=True) for t in tools_raw],
+        "tools": [
+            t.model_dump(mode="json", exclude_none=True, by_alias=True)
+            for t in tools_raw
+        ],
         "tools_raw": tools_raw,
         "resources": [
-            r.model_dump(mode="json", exclude_none=True) for r in resources_raw
+            r.model_dump(mode="json", exclude_none=True, by_alias=True)
+            for r in resources_raw
         ],
         "resources_raw": resources_raw,
         "templates": [
-            t.model_dump(mode="json", exclude_none=True) for t in templates_raw
+            t.model_dump(mode="json", exclude_none=True, by_alias=True)
+            for t in templates_raw
         ],
         "templates_raw": templates_raw,
     }

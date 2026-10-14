@@ -22,7 +22,7 @@ from ..schemas.transaction_aggregate import _ynab_format
 def register(mcp, ynab_service: YnabService):
     """Register budget management tools with MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
+    @mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
     def assign_budget_to_category(
         request: AssignBudgetCategoryRequest,
     ) -> Dict[str, Any]:
@@ -35,7 +35,7 @@ def register(mcp, ynab_service: YnabService):
             "category": clean_ynab_data(result.data.category.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
+    @mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
     def update_category_goal_to_recurring(
         request: UpdateCategoryGoalRecurringRequest,
     ) -> Dict[str, Any]:
@@ -46,7 +46,7 @@ def register(mcp, ynab_service: YnabService):
             "category": clean_ynab_data(result.data.category.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
+    @mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
     def update_category_goal_to_target_date(
         request: UpdateCategoryTargetDateRequest,
     ) -> Dict[str, Any]:
@@ -57,7 +57,7 @@ def register(mcp, ynab_service: YnabService):
             "category": clean_ynab_data(result.data.category.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
+    @mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
     def update_category_details(
         request: UpdateCategoryDetailsRequest,
     ) -> Dict[str, Any]:
@@ -68,7 +68,7 @@ def register(mcp, ynab_service: YnabService):
             "category": clean_ynab_data(result.data.category.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
+    @mcp.tool(annotations=ToolAnnotations(destructive_hint=True))
     def clear_category_goals(request: ClearCategoryGoalRequest) -> Dict[str, Any]:
         """Clear a category's goal."""
         result = ynab_service.update_category(request.to_update_category_request())
@@ -77,7 +77,7 @@ def register(mcp, ynab_service: YnabService):
             "category": clean_ynab_data(result.data.category.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=False))
     def create_transaction(request: CreateTransactionRequest) -> Dict[str, Any]:
         """Create a new transaction."""
         result = ynab_service.create_transaction(
@@ -97,7 +97,7 @@ def register(mcp, ynab_service: YnabService):
             "transaction": clean_ynab_data(result.data.transaction.to_dict()),
         }
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
     def check_budget_health(
         month: Annotated[str, "Month YYYY-MM"],
     ) -> BudgetHealthResponse:
@@ -178,7 +178,7 @@ def register(mcp, ynab_service: YnabService):
             >= 0.8,  # Consider healthy if 80%+ categories are healthy
         )
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
+    @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
     def get_spending_insights(
         month: Annotated[str, "Month YYYY-MM"],
         category_id: Annotated[Optional[str], "Category UUID"] = None,
