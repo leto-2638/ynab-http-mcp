@@ -1,11 +1,8 @@
 """
 Budget management tools for YNAB HTTP MCP.
-
-This module provides tools for budget management operations including
-money reassignment, budget health checking, and spending insights.
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Annotated
 from mcp.types import ToolAnnotations
 from ..ynab_service import YnabService
 from ..utils.schema_utils import clean_ynab_data
@@ -19,6 +16,7 @@ from ..schemas.budget_tools import (
     BudgetHealthResponse,
     SpendingInsightsResponse,
 )
+from ..schemas.transaction_aggregate import _ynab_format
 
 
 def register(mcp, ynab_service: YnabService):
@@ -28,15 +26,7 @@ def register(mcp, ynab_service: YnabService):
     def assign_budget_to_category(
         request: AssignBudgetCategoryRequest,
     ) -> Dict[str, Any]:
-        """
-        Update a month category budget amount.
-
-        Args:
-            request: Update request with month, category_id, and new budgeted amount
-
-        Returns:
-            Dictionary with success status and updated category data
-        """
+        """Update a month category budget amount."""
         result = ynab_service.update_month_category(
             f"{request.month}-01", request.category_id, request.budgeted_amount
         )
@@ -49,15 +39,7 @@ def register(mcp, ynab_service: YnabService):
     def update_category_goal_to_recurring(
         request: UpdateCategoryGoalRecurringRequest,
     ) -> Dict[str, Any]:
-        """
-        Update a category's goal to a recurring goal in YNAB.
-
-        Args:
-            request: Update request with category parameters and goal settings
-
-        Returns:
-            Dictionary with success status and updated category data
-        """
+        """Update a category's goal to a recurring goal."""
         result = ynab_service.update_category(request.to_update_category_request())
         return {
             "success": True,
@@ -68,15 +50,7 @@ def register(mcp, ynab_service: YnabService):
     def update_category_goal_to_target_date(
         request: UpdateCategoryTargetDateRequest,
     ) -> Dict[str, Any]:
-        """
-        Update a category's goal to set aside until a target date.
-
-        Args:
-            request: Update request with category parameters and goal settings
-
-        Returns:
-            Dictionary with success status and updated category data
-        """
+        """Update a category's goal to set aside until a target date."""
         result = ynab_service.update_category(request.to_update_category_request())
         return {
             "success": True,
@@ -87,15 +61,7 @@ def register(mcp, ynab_service: YnabService):
     def update_category_details(
         request: UpdateCategoryDetailsRequest,
     ) -> Dict[str, Any]:
-        """
-        Update a category's details, and assignment to a category group ID.
-
-        Args:
-            request: Update request with category parameters and goal settings
-
-        Returns:
-            Dictionary with success status and updated category data
-        """
+        """Update a category's name, note, or category group assignment."""
         result = ynab_service.update_category(request.to_update_category_request())
         return {
             "success": True,
@@ -104,15 +70,7 @@ def register(mcp, ynab_service: YnabService):
 
     @mcp.tool(annotations=ToolAnnotations(destructiveHint=True))
     def clear_category_goals(request: ClearCategoryGoalRequest) -> Dict[str, Any]:
-        """
-        Clear a category's goal
-
-        Args:
-            request: Update request with category parameters and goal settings
-
-        Returns:
-            Dictionary with success status and updated category data
-        """
+        """Clear a category's goal."""
         result = ynab_service.update_category(request.to_update_category_request())
         return {
             "success": True,
@@ -121,15 +79,7 @@ def register(mcp, ynab_service: YnabService):
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False))
     def create_transaction(request: CreateTransactionRequest) -> Dict[str, Any]:
-        """
-        Create a new transaction.
-
-        Args:
-            request: Transaction creation request
-
-        Returns:
-            Dictionary with success status and created transaction data
-        """
+        """Create a new transaction."""
         result = ynab_service.create_transaction(
             request.account_id,
             request.date,
@@ -148,16 +98,10 @@ def register(mcp, ynab_service: YnabService):
         }
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
-    def check_budget_health(month: str) -> BudgetHealthResponse:
-        """
-        Check overall budget health for a specific month.
-
-        Args:
-            month: Month in YYYY-MM format
-
-        Returns:
-            BudgetHealthResponse with health metrics
-        """
+    def check_budget_health(
+        month: Annotated[str, "Month YYYY-MM"],
+    ) -> BudgetHealthResponse:
+        """Check budget health for a month."""
         # Get month data
         month_detail = ynab_service.get_plan_month(month).data.month
 
@@ -165,6 +109,20 @@ def register(mcp, ynab_service: YnabService):
         total_budgeted = month_detail.budgeted
         total_activity = month_detail.activity
         to_be_budgeted = month_detail.to_be_budgeted
+
+        # Grab SDK-formatted strings with fallback to _ynab_format
+        _template = None
+        if month_detail.budgeted_formatted:
+            _template = month_detail.budgeted_formatted
+
+        def _fmt(value: int, sdk_fmt: Optional[str]) -> str:
+            return sdk_fmt if sdk_fmt else _ynab_format(value, _template)
+
+        total_budgeted_formatted = _fmt(total_budgeted, month_detail.budgeted_formatted)
+        total_activity_formatted = _fmt(total_activity, month_detail.activity_formatted)
+        to_be_budgeted_formatted = _fmt(
+            to_be_budgeted, month_detail.to_be_budgeted_formatted
+        )
 
         # Calculate category-level health metrics
         category_health = {}
@@ -192,8 +150,11 @@ def register(mcp, ynab_service: YnabService):
             category_health[str(category.id)] = {
                 "category_name": category.name,
                 "budgeted": cat_budgeted,
+                "budgeted_formatted": _fmt(cat_budgeted, category.budgeted_formatted),
                 "activity": cat_activity,
+                "activity_formatted": _fmt(cat_activity, category.activity_formatted),
                 "balance": cat_balance,
+                "balance_formatted": _fmt(cat_balance, category.balance_formatted),
                 "activity_ratio": activity_ratio,
                 "is_healthy": is_healthy,
             }
@@ -206,8 +167,11 @@ def register(mcp, ynab_service: YnabService):
         return BudgetHealthResponse(
             month=month,
             total_budgeted=total_budgeted,
+            total_budgeted_formatted=total_budgeted_formatted,
             total_activity=total_activity,
+            total_activity_formatted=total_activity_formatted,
             to_be_budgeted=to_be_budgeted,
+            to_be_budgeted_formatted=to_be_budgeted_formatted,
             category_health=category_health,
             health_percentage=health_percentage,
             is_healthy=health_percentage
@@ -216,18 +180,10 @@ def register(mcp, ynab_service: YnabService):
 
     @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True))
     def get_spending_insights(
-        month: str, category_id: Optional[str] = None
+        month: Annotated[str, "Month YYYY-MM"],
+        category_id: Annotated[Optional[str], "Category UUID"] = None,
     ) -> SpendingInsightsResponse:
-        """
-        Get spending insights for a month and optional category.
-
-        Args:
-            month: Month in YYYY-MM format
-            category_id: Optional category ID to filter by
-
-        Returns:
-            SpendingInsightsResponse with spending metrics
-        """
+        """Get monthly spending insights."""
         # Get transactions for the month
         from datetime import datetime
 
@@ -243,10 +199,28 @@ def register(mcp, ynab_service: YnabService):
         # Extract transactions from response
         transactions = transactions_response.data.transactions
 
+        # Derive format template from the first transaction's amount_formatted
+        _template = None
+        for txn in transactions:
+            if txn.amount_formatted:
+                _template = txn.amount_formatted
+                break
+
         # Calculate metrics
         total_spending = sum(t.amount for t in transactions)
         average_transaction = total_spending / len(transactions) if transactions else 0
         transaction_count = len(transactions)
+
+        # Format the average using a deterministic integer milliunit value:
+        # round() ties to nearest even, which is deterministic.
+        avg_milli = int(round(average_transaction)) if transactions else 0
+
+        total_spending_formatted = (
+            _ynab_format(total_spending, _template) if transactions else "$0.00"
+        )
+        average_transaction_formatted = (
+            _ynab_format(avg_milli, _template) if transactions else "$0.00"
+        )
 
         # Get category insights
         category_insights: Dict[str, Any] = {}
@@ -257,9 +231,13 @@ def register(mcp, ynab_service: YnabService):
                 if cat_id in category_insights:
                     category_insights[cat_id]["total"] += amount
                     category_insights[cat_id]["count"] += 1
+                    category_insights[cat_id]["total_formatted"] = _ynab_format(
+                        category_insights[cat_id]["total"], _template
+                    )
                 else:
                     category_insights[cat_id] = {
                         "total": amount,
+                        "total_formatted": _ynab_format(amount, _template),
                         "count": 1,
                         "category_name": transaction.category_name or "Unknown",
                     }
@@ -268,7 +246,9 @@ def register(mcp, ynab_service: YnabService):
             month=month,
             category_id=category_id,
             total_spending=total_spending,
+            total_spending_formatted=total_spending_formatted,
             average_transaction=average_transaction,
+            average_transaction_formatted=average_transaction_formatted,
             transaction_count=transaction_count,
             category_insights=category_insights,
         )

@@ -11,22 +11,27 @@ ENV PYTHONUNBUFFERED=1
 # For more info, please refer to https://aka.ms/vscode-docker-python-configure-containers
 RUN adduser -u 5678 --disabled-password --gecos "" appuser
 
-# User environment variables (YNAB_API_KEY should be provided at runtime)
+# Runtime env vars that are truly build-time constants
 ENV YNAB_PLAN_ID="6eb84411-a778-43db-ac70-54099d711d5c"
-ENV LOG_LEVEL="debug"
-ENV DEBUG_MODE="true"
+# LOG_LEVEL and DEBUG_MODE are intentionally NOT set here;
+# they are injected at runtime via .env.dev / .env.prod.
 
 WORKDIR /app
 
-# Install uv requirements as root (before switching user)
 COPY pyproject.toml .
 COPY README.md ./
 COPY src/ ./src/
+
+# Set INSTALL_DEV=true to include dev dependencies (mypy, pytest, ruff, etc.)
+# Defaults to false for lean production images.
+ARG INSTALL_DEV=false
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=from=ghcr.io/astral-sh/uv,source=/uv,target=/bin/uv \
-    uv sync
-
-
+    if [ "$INSTALL_DEV" = "true" ]; then \
+        uv sync; \
+    else \
+        uv sync --no-dev; \
+    fi
 
 USER appuser
 
